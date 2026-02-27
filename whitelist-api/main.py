@@ -61,7 +61,7 @@ app.add_middleware(
         "https://dashboard.galxe.com",
         "https://app.galxe.com",
     ],
-    allow_methods=["GET", "OPTIONS"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
 
