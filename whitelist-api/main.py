@@ -2,6 +2,7 @@
 
 import hmac
 import logging
+from logging.handlers import RotatingFileHandler
 import re
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -15,11 +16,14 @@ from stats import stats
 from scheduler import start_scheduler
 from discord_resolver import close_http_client
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+# Configure logging with rotation (5 MB per file, keep 3 backups)
+_log_handler = RotatingFileHandler(
+    "/tmp/whitelist-api.log",
+    maxBytes=5 * 1024 * 1024,
+    backupCount=3,
 )
+_log_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+logging.basicConfig(level=logging.INFO, handlers=[_log_handler])
 logger = logging.getLogger(__name__)
 
 # Discord ID validation pattern (17-19 digit snowflake)
@@ -89,10 +93,12 @@ def verify_api_key(authorization: Optional[str] = Header(None)) -> bool:
 @app.get("/health")
 async def health():
     """Health check endpoint - no auth required."""
+    s = stats.to_dict()
     return {
         "status": "healthy",
         "cache_size": cache_size(),
-        "last_sync_at": stats.to_dict().get("last_sync_at"),
+        "last_sync_at": s.get("last_sync_at"),
+        "last_sheet_change_at": s.get("last_sheet_change_at"),
     }
 
 

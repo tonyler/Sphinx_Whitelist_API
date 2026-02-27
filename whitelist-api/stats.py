@@ -1,8 +1,18 @@
 """Statistics tracking for the API."""
 
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from typing import Dict, Any
+
+_ATHENS_TZ = ZoneInfo("Europe/Athens")
+
+
+def _fmt(dt: datetime | None) -> str | None:
+    """Format a UTC datetime as a clean Athens-time string."""
+    if dt is None:
+        return None
+    return dt.replace(tzinfo=timezone.utc).astimezone(_ATHENS_TZ).strftime("%d %b %Y %H:%M:%S %Z")
 
 
 class Stats:
@@ -12,6 +22,7 @@ class Stats:
         self._lock = threading.Lock()
         self.start_time = datetime.utcnow()
         self.last_sync_at: datetime | None = None
+        self.last_sheet_change_at: datetime | None = None
         self.total_checks = 0
         self.valid_hits = 0
         self.invalid_hits = 0
@@ -32,18 +43,21 @@ class Stats:
         with self._lock:
             self.discord_resolve_errors += 1
 
-    def record_sync(self) -> None:
-        """Record a successful sync."""
+    def record_sync(self, sheet_changed: bool = False) -> None:
+        """Record a successful sync. Pass sheet_changed=True when sheet content changed."""
         with self._lock:
             self.last_sync_at = datetime.utcnow()
             self.total_syncs += 1
+            if sheet_changed:
+                self.last_sheet_change_at = datetime.utcnow()
 
     def to_dict(self) -> Dict[str, Any]:
         """Return stats as a dictionary."""
         with self._lock:
             return {
-                "start_time": self.start_time.isoformat(),
-                "last_sync_at": self.last_sync_at.isoformat() if self.last_sync_at else None,
+                "start_time": _fmt(self.start_time),
+                "last_sync_at": _fmt(self.last_sync_at),
+                "last_sheet_change_at": _fmt(self.last_sheet_change_at),
                 "uptime_seconds": (datetime.utcnow() - self.start_time).total_seconds(),
                 "total_checks": self.total_checks,
                 "valid_hits": self.valid_hits,
